@@ -20,6 +20,7 @@ class Vector {
         return new Vector(this.x*time,this.y*time);
     }
 
+    //Принимает аргумент Actor, проверяет что текущий вектор находится в пределах объекта Actor СТРОГО не включая границы
     isSctrictlyInside(actor) {
         
         if (actor === undefined) {
@@ -38,6 +39,7 @@ class Vector {
 
     }
 
+    //Принимает аргумент Actor, проверяет что текущий вектор находится в пределах объекта Actor включая границы
     isInside(actor) {
         
         if (actor === undefined) {
@@ -125,7 +127,7 @@ class Actor {
         
         // Проверим, что любая из вершин переданного объекта СТРОГО входит в наш объект (т.е. не лежит на границах)
         // Если так, то объекты ТОЧНО пересекаются
-        let check = object.bottomleft.isSctrictlyInside(this) ||
+        const check = object.bottomleft.isSctrictlyInside(this) ||
                 object.bottomright.isSctrictlyInside(this) ||  
                 object.topleft.isSctrictlyInside(this) || 
                 object.topright.isSctrictlyInside(this);
@@ -133,22 +135,144 @@ class Actor {
         if (check) {return true};
 
         // Теперь посчитаем количество пересечений вершин одного объекта в другом, если объекты не СМЕЖНЫЕ , то количество пересечений будет больше или равно четырём
-        let number_of_intersections_А = 
+        const number_of_intersections = 
             object.bottomleft.isInside(this) + 
             object.bottomright.isInside(this) +  
             object.topleft.isInside(this) + 
-            object.topright.isInside(this);
-
-        let number_of_intersections_B =
+            object.topright.isInside(this) +
             this.bottomleft.isInside(object) + 
             this.bottomright.isInside(object) +
             this.topleft.isInside(object) +
             this.topright.isInside(object);
 
-        return ((number_of_intersections_А + number_of_intersections_B)) >= 4 ? true : false;
+        return (number_of_intersections >= 4);
 
     }
 
 } 
 
+//Объекты класса Level реализуют схему игрового поля конкретного уровня, 
+// контролируют все движущиеся объекты на нём и реализуют логику игры. 
+// Уровень представляет собой координатное поле, имеющее фиксированную ширину и высоту.
+class Level {
 
+    //Конструктор
+    // Принимает два аргумента: сетку игрового поля с препятствиями, массив массивов строк, и список движущихся объектов, массив объектов Actor. Оба аргумента необязательные.
+    constructor(grid = undefined,actors=[]) {
+
+        //Имеет свойство grid — сетку игрового поля. Двумерный массив строк.
+        this.grid = grid ? grid : [['']];
+
+        //Имеет свойство height — высоту игрового поля, равное числу строк в сетке из первого аргумента.
+        this.height = grid ? this.grid.length : 0;
+
+        //Имеет свойство width — ширину игрового поля, равное числу ячеек в строке сетки из первого аргумента. При этом, если в разных строках разное число ячеек, то width будет равно максимальному количеству ячеек в строке.
+        this.width = grid ? Math.max(...this.grid.map(x => x.length)) : 0;
+
+        //Имеет свойство actors — список движущихся объектов игрового поля, массив объектов Actor.
+        this.actors = actors;
+
+        //Имеет свойство player — движущийся объект, тип которого — свойство type — равно player. Игорок передаётся с остальными движущимися объектами.
+        this.player = this.actors.find(item => item.type === 'player');
+
+        //Имеет свойство status — состояние прохождения уровня, равное null после создания.
+        this.status = null;
+
+        //Имеет свойство finishDelay — таймаут после окончания игры, равен 1 после создания. Необходим, чтобы после выигрыша или проигрыша игра не завершалась мгновенно.
+        this.finishDelay = 1;
+
+    }
+
+    //Имеет свойство height — высоту игрового поля, равное числу строк в сетке из первого аргумента.
+    //get height() {return this.grid.length};
+
+    //Имеет свойство width — ширину игрового поля, равное числу ячеек в строке сетки из первого аргумента. При этом, если в разных строках разное число ячеек, то width будет равно максимальному количеству ячеек в строке.
+    //get width() {return Math.max(this.grid.map(x => x.length))}
+
+    isFinished() {
+        return this.status!==null && this.finishDelay <0;
+    }
+
+    actorAt(object) {
+
+        if (object === undefined) {
+            throw (new Error('Аргумент в методе actorAt класса Level не определен')); 
+        }
+
+        if (!(object instanceof Actor)) {
+            throw (new Error('Аргумент в методе actorAt класса Level не Actor')); 
+        }
+
+        return this.actors.find(actor => actor.isIntersect(object));
+    }
+
+    obstacleAt(pos,size) {
+
+        if (!(pos instanceof Vector)) {
+            throw (new Error('В методе obstacleAt параметр pos не Vector '));
+        }
+
+        if (!(size instanceof Vector)) {
+            throw (new Error('В методе obstacleAt параметр size не Vector '));
+        }
+
+        const object = new Actor(pos,size);
+        
+        if (object.left < 0) {return 'wall'};
+        if (object.right > this.width) {return 'wall'};
+        if (object.top <0) {return 'wall'};
+        if (object.bottom > this.height) {return 'lava'};
+        
+        
+
+        const pos_left = Math.ceil(object.left);
+        const pos_top = Math.ceil(object.top);
+                
+        const field_item_at_topleft = this.grid[pos_top][pos_left];
+
+        const pos_right = Math.floor(object.right);
+        const pos_bottom = Math.floor(object.bottom);
+
+        const field_item_at_bottomright = this.grid[pos_bottom][pos_right];
+
+        console.log(object.left,object.top,object.right,object.bottom);
+        console.log(pos_left,pos_top,pos_right,pos_bottom);
+
+        console.log(field_item_at_topleft);
+        console.log(field_item_at_bottomright);
+
+        if (field_item_at_bottomright === 'wall' && Math.floor(object.bottom) === object.bottom ) {
+            return undefined;
+        } else {
+            return field_item_at_topleft ? field_item_at_bottomright : field_item_at_topleft;
+        }
+    }
+
+
+}
+
+
+const grid = [
+    Array(4),
+    Array(4),
+    Array(4),
+    Array(4).fill('wall')
+  ];
+  const level = new Level(grid);
+  const position = new Vector(2.1, 1.5);
+  const size = new Vector(0.8, 1.5);
+  const nothing = level.obstacleAt(position, size);
+  console.log(nothing);
+
+
+  const wallGrid = [
+    Array(4).fill('wall'),
+    Array(4).fill('wall'),
+    Array(4).fill('wall'),
+    Array(4).fill('wall')
+  ];  
+const level2 = new Level(wallGrid);
+const position2 = new Vector(0, 0);
+const size2 = new Vector(1, 1);
+const wall = level2.obstacleAt(position2, size2);
+console.log(wall);
