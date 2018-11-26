@@ -126,12 +126,17 @@ class Actor {
 
         //Объекты, имеющие смежные границы, не пересекаются.
         
-        // Проверим, что любая из вершин переданного объекта СТРОГО входит в наш объект (т.е. не лежит на границах)
+        // Проверим, что любая из вершин переданного объекта СТРОГО входит в наш объект (т.е. не лежит на границах) либо наоборот
+        // Проверка обратного случая необходима, когда один из объектов сильно меньше другого
         // Если так, то объекты ТОЧНО пересекаются
         const check = object.bottomleft.isSctrictlyInside(this) ||
                 object.bottomright.isSctrictlyInside(this) ||  
                 object.topleft.isSctrictlyInside(this) || 
-                object.topright.isSctrictlyInside(this);
+                object.topright.isSctrictlyInside(this) || 
+                this.bottomleft.isSctrictlyInside(object) ||
+                this.bottomright.isSctrictlyInside(object) ||  
+                this.topleft.isSctrictlyInside(object) || 
+                this.topright.isSctrictlyInside(object);
 
         if (check) {return true};
 
@@ -225,32 +230,79 @@ class Level {
         if (object.bottom > this.height) {return 'lava'};
         
         
-        
+        //console.log('========BEGIN=============');
         //console.log(object);
         //console.log(this.grid);
-
-        const pos_left = Math.ceil(object.left);
-        const pos_top = Math.ceil(object.top);
         
-        //console.log(object.left,object.top,object.right,object.bottom);
-
-        const field_item_at_topleft = this.grid[pos_top] ? this.grid[pos_top][pos_left] : this.grid[pos_top];
-
+        const pos_left = Math.floor(object.left);
+        const pos_top = Math.floor(object.top);
         const pos_right = Math.floor(object.right);
         const pos_bottom = Math.floor(object.bottom);
+        const pos_middle = pos_top+Math.floor((pos_bottom-pos_top)/2);
+        
+        //console.log(object.left,object.right,object.top,object.bottom);
+        //console.log(pos_left,pos_right,pos_top,pos_bottom,pos_middle);
 
-        //console.log(pos_left,pos_top,pos_right,pos_bottom);
+        const field_item_at_topleft = this.grid[pos_top] ? this.grid[pos_top][pos_left] : this.grid[pos_top];
+        const field_item_at_topright = this.grid[pos_top] ? this.grid[pos_top][pos_right] : this.grid[pos_top];
+
+        const field_item_at_midleft = this.grid[pos_middle] ? this.grid[pos_middle][pos_left] : this.grid[pos_middle];
+        const field_item_at_midright = this.grid[pos_middle] ? this.grid[pos_middle][pos_right] : this.grid[pos_middle];
+
+        const field_item_at_bottomleft = this.grid[pos_bottom] ? this.grid[pos_bottom][pos_left] : this.grid[pos_bottom];
         const field_item_at_bottomright = this.grid[pos_bottom] ? this.grid[pos_bottom][pos_right] : this.grid[pos_bottom];
 
         //console.log(field_item_at_topleft);
+        //console.log(field_item_at_topright);
+        //console.log(field_item_at_midleft);
+        //console.log(field_item_at_midright);
+        //console.log(field_item_at_bottomleft);
         //console.log(field_item_at_bottomright);
+        //console.log('========END==============');
 
+        //Возвращаем лаву, только если ОБЕ ноги человека стоят в лаве, то он туда падает независимо от других точек
+        if (field_item_at_bottomleft === 'lava' && field_item_at_bottomright === 'lava') {
+            return 'lava';
+        } 
 
+        //Смотрим остальные точки объекта
+        let return_object = undefined;
+
+        return_object = field_item_at_topleft ? field_item_at_topleft : return_object;
+        return_object = field_item_at_topright ? field_item_at_topright : return_object;
+        return_object = field_item_at_midleft ? field_item_at_midleft : return_object;
+        return_object = field_item_at_midright ? field_item_at_midright : return_object;
+
+        //Нашли пересечение с одной из точек по краям объекта , сразу вернём
+        if (return_object !== undefined) {
+            return return_object;
+        } else {
+        
+            // Если все остальные точки объекта неопределены - смотрим на ноги
+
+            // Если хотя бы одна из ног стоит на земле 
+            if (field_item_at_bottomright === 'wall' || field_item_at_bottomleft === 'wall') {
+                
+                //Если позиция нижней точки на уровне пола - просто стоим, иначе пересечение со стеной
+                if (pos_bottom === object.bottom) {
+                    return undefined;
+                } else {
+                    return 'wall';
+                }
+
+            } else {
+            
+                return field_item_at_bottomleft ? field_item_at_bottomleft : field_item_at_bottomright;
+            }
+        }
+        
+        /*
         if (field_item_at_bottomright === 'wall' && field_item_at_topleft === undefined && Math.floor(object.bottom) === object.bottom ) {
             return undefined;
         } else {
             return field_item_at_topleft ? field_item_at_topleft : field_item_at_bottomright;
         }
+        */
     }
 
     removeActor (actor) {
@@ -533,18 +585,115 @@ const grid = [
 
  const schemas = [
     [
+      "     v                 ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "  | xx       x         ",
+      "  o                 o  ",
+      "  x               = x  ",
+      "  x          o o    x  ",
+      "  x  @    *  xxxxx  x  ",
+      "  xxxxx             x  ",
+      "      x!!!!!!!!!!!!!x  ",
+      "      xxxxxxxxxxxxxxx  ",
+      "                       "
+    ],
+    [
+      "     v                 ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "  |                    ",
+      "  o                 o  ",
+      "  x               = x  ",
+      "  x          o o    x  ",
+      "  x  @       xxxxx  x  ",
+      "  xxxxx             x  ",
+      "      x!!!!!!!!!!!!!x  ",
+      "      xxxxxxxxxxxxxxx  ",
+      "                       "
+    ],
+    [
+      "        |           |  ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "                       ",
+      "     |                 ",
+      "                       ",
+      "         =      |      ",
+      " @ |  o            o   ",
+      "xxxxxxxxx!!!!!!!xxxxxxx",
+      "                       "
+    ],
+    [
+      "                       ",
+      "                       ",
+      "                       ",
+      "    o                  ",
+      "    x      | x!!x=     ",
+      "         x             ",
+      "                      x",
+      "                       ",
+      "                       ",
+      "                       ",
+      "               xxx     ",
+      "                       ",
+      "                       ",
+      "       xxx  |          ",
+      "                       ",
+      " @                     ",
+      "xxx                    ",
+      "                       "
+    ], [
+      "   v         v",
+      "              ",
+      "         !o!  ",
+      "              ",
+      "              ",
+      "              ",
+      "              ",
+      "         xxx  ",
+      "          o   ",
+      "        =     ",
+      "  @           ",
+      "  xxxx        ",
+      "  |           ",
+      "      xxx    x",
+      "              ",
+      "          !   ",
+      "              ",
+      "              ",
+      " o       x    ",
+      " x      x     ",
+      "       x      ",
+      "      x       ",
+      "   xx         ",
+      "              "
+    ]
+  ];
+
+  const schemas2 = [
+    [
       '         ',
       '         ',
-      '    =    ',
-      '       o ',
-      '     !xxx',
-      ' @       ',
+      '         ',
+      '        x',
+      'x    !xxx',
+      'x@       ',
       'xxx!     ',
       '         '
     ],
     [
       '      v  ',
-      '         ',
+      '    v    ',
       '  v      ',
       '        o',
       '        x',
@@ -553,6 +702,16 @@ const grid = [
       '         '
     ]
   ];
+
+  
+  const schemas3 = [
+    [
+      '  ',
+      '@o',
+      'xx'
+    ]
+  ];
+
   const actorDict = {
     '@': Player,
     'o': Coin,
@@ -560,6 +719,6 @@ const grid = [
     'v': FireRain
   }
   const parser = new LevelParser(actorDict);
-  runGame(schemas, parser, DOMDisplay)
+ runGame(schemas, parser, DOMDisplay)
     .then(() => console.log('Вы выиграли приз!'));
  
